@@ -31,6 +31,7 @@
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
 local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 
@@ -45,18 +46,23 @@ if type(GlobalEnv.__DAW1DK_GLASS_ACTIVE) == "table" and type(GlobalEnv.__DAW1DK_
 end
 
 local Library = {
-    Version = "2.0.0",
+    Version = "3.1.0",
     Theme = {
-        Background = Color3.fromRGB(14, 14, 16),
-        Surface = Color3.fromRGB(18, 19, 21),
-        SurfaceAlt = Color3.fromRGB(24, 25, 28),
-        SurfaceBright = Color3.fromRGB(33, 34, 38),
-        Sidebar = Color3.fromRGB(16, 17, 19),
+        Background = Color3.fromRGB(78, 48, 59),
+        Surface = Color3.fromRGB(104, 71, 84),
+        SurfaceAlt = Color3.fromRGB(91, 65, 81),
+        SurfaceBright = Color3.fromRGB(132, 99, 113),
+        Sidebar = Color3.fromRGB(68, 48, 62),
+        Overlay = Color3.fromRGB(16, 12, 18),
+        Frost = Color3.fromRGB(255, 248, 250),
+        FrostSoft = Color3.fromRGB(255, 240, 246),
+        WarmGlow = Color3.fromRGB(255, 140, 116),
+        CoolGlow = Color3.fromRGB(164, 128, 255),
         Outline = Color3.fromRGB(255, 255, 255),
-        OutlineSoft = Color3.fromRGB(203, 206, 212),
-        Text = Color3.fromRGB(241, 242, 245),
-        MutedText = Color3.fromRGB(154, 157, 164),
-        Success = Color3.fromRGB(227, 229, 233),
+        OutlineSoft = Color3.fromRGB(233, 227, 231),
+        Text = Color3.fromRGB(252, 247, 250),
+        MutedText = Color3.fromRGB(226, 213, 220),
+        Success = Color3.fromRGB(227, 239, 233),
         Danger = Color3.fromRGB(240, 188, 193),
         Hover = Color3.fromRGB(255, 255, 255)
     },
@@ -247,7 +253,7 @@ end
 local function makeStroke(parent, thickness, transparency)
     local stroke = newObject("UIStroke", {
         Thickness = thickness or 1,
-        Transparency = transparency or 0.28,
+        Transparency = transparency or 0.42,
         Color = Library.Theme.Outline,
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         LineJoinMode = Enum.LineJoinMode.Round,
@@ -259,7 +265,7 @@ local function makeStroke(parent, thickness, transparency)
             Rotation = 0,
             Color = ColorSequence.new({
                 ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(212, 214, 219)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(224, 224, 229)),
                 ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
             }),
             Parent = stroke
@@ -282,12 +288,13 @@ local function makeSheen(parent, radius)
     newObject("UIGradient", {
         Rotation = 90,
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(206, 208, 214))
+            ColorSequenceKeypoint.new(0, Library.Theme.Frost),
+            ColorSequenceKeypoint.new(1, Library.Theme.FrostSoft)
         }),
         Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.975),
-            NumberSequenceKeypoint.new(0.4, 0.992),
+            NumberSequenceKeypoint.new(0, 0.72),
+            NumberSequenceKeypoint.new(0.28, 0.84),
+            NumberSequenceKeypoint.new(0.65, 0.94),
             NumberSequenceKeypoint.new(1, 1)
         }),
         Parent = sheen
@@ -296,12 +303,56 @@ local function makeSheen(parent, radius)
     return sheen
 end
 
+local function makeGlow(parent, properties)
+    local glow = newObject("Frame", {
+        Parent = parent,
+        BackgroundColor3 = properties.BackgroundColor3,
+        BackgroundTransparency = properties.BackgroundTransparency or 0.78,
+        BorderSizePixel = 0,
+        Size = properties.Size,
+        Position = properties.Position,
+        AnchorPoint = properties.AnchorPoint or Vector2.new(),
+        Rotation = properties.Rotation or 0,
+        ZIndex = properties.ZIndex
+    })
+
+    makeCorner(glow, properties.Radius or 999)
+
+    if properties.ColorSequence or properties.TransparencySequence then
+        newObject("UIGradient", {
+            Parent = glow,
+            Rotation = properties.GradientRotation or 0,
+            Color = properties.ColorSequence or ColorSequence.new({
+                ColorSequenceKeypoint.new(0, properties.BackgroundColor3),
+                ColorSequenceKeypoint.new(1, properties.BackgroundColor3)
+            }),
+            Transparency = properties.TransparencySequence
+        })
+    end
+
+    return glow
+end
+
+local function makeInnerBorder(parent, radius, transparency)
+    local inner = newObject("Frame", {
+        Parent = parent,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, 1, 0, 1),
+        Size = UDim2.new(1, -2, 1, -2)
+    })
+
+    makeCorner(inner, math.max((radius or 8) - 1, 2))
+    makeStroke(inner, 1, transparency or 0.72)
+    return inner
+end
+
 local function makeGlass(parent, properties)
     local frame = newObject("Frame", {
         Parent = parent,
         BorderSizePixel = 0,
         BackgroundColor3 = properties.BackgroundColor3 or Library.Theme.Surface,
-        BackgroundTransparency = properties.BackgroundTransparency or 0.16,
+        BackgroundTransparency = properties.BackgroundTransparency or 0.56,
         Size = properties.Size or UDim2.fromScale(1, 1),
         Position = properties.Position or UDim2.new(),
         AnchorPoint = properties.AnchorPoint or Vector2.new(),
@@ -314,9 +365,34 @@ local function makeGlass(parent, properties)
         frame.ZIndex = properties.ZIndex
     end
 
-    makeCorner(frame, properties.Radius or 6)
-    makeStroke(frame, properties.StrokeThickness or 1, properties.StrokeTransparency or 0.28)
-    makeSheen(frame, properties.Radius or 6)
+    makeCorner(frame, properties.Radius or 12)
+    makeStroke(frame, properties.StrokeThickness or 1, properties.StrokeTransparency or 0.42)
+    makeSheen(frame, properties.Radius or 12)
+    makeInnerBorder(frame, properties.Radius or 12, properties.InnerStrokeTransparency or 0.82)
+
+    local tint = newObject("Frame", {
+        Parent = frame,
+        BackgroundColor3 = properties.TintColor or Library.Theme.Frost,
+        BackgroundTransparency = properties.TintTransparency or 0.88,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 1)
+    })
+    makeCorner(tint, properties.Radius or 12)
+
+    newObject("UIGradient", {
+        Parent = tint,
+        Rotation = properties.TintRotation or 120,
+        Color = properties.TintSequence or ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Library.Theme.Frost),
+            ColorSequenceKeypoint.new(0.5, Library.Theme.FrostSoft),
+            ColorSequenceKeypoint.new(1, Library.Theme.SurfaceAlt)
+        }),
+        Transparency = properties.TintTransparencySequence or NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.42),
+            NumberSequenceKeypoint.new(0.45, 0.76),
+            NumberSequenceKeypoint.new(1, 0.94)
+        })
+    })
 
     return frame
 end
@@ -350,10 +426,17 @@ end
 function Controller:_makeInteractiveSurface(parent, size)
     return makeGlass(parent, {
         Size = size or UDim2.new(1, 0, 0, 42),
-        Radius = 6,
+        Radius = 8,
         BackgroundColor3 = Library.Theme.SurfaceAlt,
-        BackgroundTransparency = 0.18,
-        StrokeTransparency = 0.3
+        BackgroundTransparency = 0.44,
+        StrokeTransparency = 0.38,
+        InnerStrokeTransparency = 0.82,
+        TintTransparency = 0.9,
+        TintTransparencySequence = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.4),
+            NumberSequenceKeypoint.new(0.5, 0.72),
+            NumberSequenceKeypoint.new(1, 0.94)
+        })
     })
 end
 
@@ -398,7 +481,7 @@ function Controller:_addHoverAnimation(surface, button, normalTransparency, hove
             BackgroundTransparency = hoverTransparency or 0.1
         })
         self:_tween(scale, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Scale = 1.012
+            Scale = 1.008
         })
     end)
 
@@ -413,13 +496,13 @@ function Controller:_addHoverAnimation(surface, button, normalTransparency, hove
 
     self:_connect(button.MouseButton1Down, function()
         self:_tween(scale, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Scale = 0.978
+            Scale = 0.986
         })
     end)
 
     self:_connect(button.MouseButton1Up, function()
         self:_tween(scale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Scale = 1.008
+            Scale = 1.004
         })
     end)
 end
@@ -465,7 +548,29 @@ function Controller:_updateScrollCanvas(scroll, layout)
 end
 
 function Controller:_setBlur(size)
-    return size
+    if not self.Blur then
+        return
+    end
+
+    if size <= 0 then
+        self:_tween(self.Blur, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = 0
+        })
+        task.delay(0.22, function()
+            if self.Destroyed then
+                return
+            end
+            if self.Blur and self.Blur.Size <= 0.05 then
+                self.Blur.Enabled = false
+            end
+        end)
+        return
+    end
+
+    self.Blur.Enabled = true
+    self:_tween(self.Blur, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = size
+    })
 end
 
 function Controller:_buildRoot()
@@ -479,6 +584,14 @@ function Controller:_buildRoot()
     self.ScreenGui.Parent = resolveGuiParent(self.ScreenGui)
     self:_trackInstance(self.ScreenGui)
 
+    self.Blur = newObject("BlurEffect", {
+        Name = "Daw1dkGlassRawBlur_" .. tostring(math.random(1000, 9999)),
+        Enabled = false,
+        Size = 0,
+        Parent = Lighting
+    })
+    self:_trackInstance(self.Blur)
+
     self.Root = newObject("Frame", {
         Parent = self.ScreenGui,
         BackgroundTransparency = 1,
@@ -489,7 +602,7 @@ end
 function Controller:_buildLoadingOverlay()
     self.LoadingOverlay = newObject("Frame", {
         Parent = self.Root,
-        BackgroundColor3 = Color3.fromRGB(68, 72, 79),
+        BackgroundColor3 = Library.Theme.Overlay,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Size = UDim2.fromScale(1, 1),
@@ -503,8 +616,8 @@ function Controller:_buildLoadingOverlay()
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.54),
         BackgroundColor3 = Library.Theme.Surface,
-        BackgroundTransparency = 0.08,
-        Radius = 8,
+        BackgroundTransparency = 0.48,
+        Radius = 16,
         ZIndex = 3
     })
     self:_animateStroke(self.LoadingPanel, 0.26)
@@ -544,7 +657,7 @@ function Controller:_buildLoadingOverlay()
 
     local progressBack = self:_makeInteractiveSurface(self.LoadingPanel, UDim2.new(1, 0, 0, 10))
     progressBack.Position = UDim2.new(0, 0, 1, -10)
-    progressBack.BackgroundTransparency = 0.08
+    progressBack.BackgroundTransparency = 0.5
     progressBack.ZIndex = 4
 
     self.LoadingFill = newObject("Frame", {
@@ -570,7 +683,7 @@ end
 function Controller:_buildMainWindow()
     self.MainOverlay = newObject("Frame", {
         Parent = self.Root,
-        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundColor3 = Library.Theme.Overlay,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Size = UDim2.fromScale(1, 1),
@@ -578,17 +691,107 @@ function Controller:_buildMainWindow()
         ZIndex = 4
     })
 
+    self.MainBackdrop = newObject("Frame", {
+        Parent = self.MainOverlay,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 4
+    })
+
+    makeGlow(self.MainBackdrop, {
+        BackgroundColor3 = Library.Theme.WarmGlow,
+        BackgroundTransparency = 0.78,
+        Position = UDim2.new(0.5, 140, 0.1, -10),
+        Size = UDim2.fromOffset(720, 320),
+        Rotation = 8,
+        Radius = 999,
+        ZIndex = 4,
+        ColorSequence = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 142, 129)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(133, 51, 62))
+        }),
+        TransparencySequence = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.76),
+            NumberSequenceKeypoint.new(0.7, 0.9),
+            NumberSequenceKeypoint.new(1, 1)
+        })
+    })
+
+    makeGlow(self.MainBackdrop, {
+        BackgroundColor3 = Library.Theme.CoolGlow,
+        BackgroundTransparency = 0.83,
+        Position = UDim2.new(0.2, -120, 0.82, -120),
+        Size = UDim2.fromOffset(560, 260),
+        Rotation = -20,
+        Radius = 999,
+        ZIndex = 4,
+        ColorSequence = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(116, 93, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(79, 50, 120))
+        }),
+        TransparencySequence = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.82),
+            NumberSequenceKeypoint.new(0.72, 0.94),
+            NumberSequenceKeypoint.new(1, 1)
+        })
+    })
+
+    makeGlow(self.MainBackdrop, {
+        BackgroundColor3 = Color3.fromRGB(255, 180, 147),
+        BackgroundTransparency = 0.88,
+        Position = UDim2.new(0.68, -120, 0.88, -100),
+        Size = UDim2.fromOffset(460, 180),
+        Rotation = 6,
+        Radius = 999,
+        ZIndex = 4,
+        ColorSequence = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 215, 199)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(165, 86, 78))
+        }),
+        TransparencySequence = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.84),
+            NumberSequenceKeypoint.new(0.7, 0.95),
+            NumberSequenceKeypoint.new(1, 1)
+        })
+    })
+
+    self.MainShadow = newObject("Frame", {
+        Parent = self.MainOverlay,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(900, 610),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundTransparency = 0.9,
+        BorderSizePixel = 0,
+        ZIndex = 4
+    })
+    makeCorner(self.MainShadow, 20)
+
     self.MainPanel = makeGlass(self.MainOverlay, {
         Name = "MainPanel",
-        Size = UDim2.fromOffset(820, 540),
+        Size = UDim2.fromOffset(900, 560),
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.54),
         BackgroundColor3 = Library.Theme.Background,
-        BackgroundTransparency = 0.14,
-        Radius = 8,
+        BackgroundTransparency = 0.6,
+        Radius = 18,
         ZIndex = 5,
         Visible = false,
-        ClipsDescendants = true
+        ClipsDescendants = true,
+        StrokeTransparency = 0.38,
+        InnerStrokeTransparency = 0.78,
+        TintTransparency = 0.88,
+        TintRotation = 90,
+        TintSequence = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Library.Theme.Frost),
+            ColorSequenceKeypoint.new(0.45, Library.Theme.FrostSoft),
+            ColorSequenceKeypoint.new(1, Library.Theme.SurfaceAlt)
+        }),
+        TintTransparencySequence = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.32),
+            NumberSequenceKeypoint.new(0.45, 0.64),
+            NumberSequenceKeypoint.new(1, 0.9)
+        })
     })
     self:_animateStroke(self.MainPanel, 0.22)
 
@@ -596,74 +799,160 @@ function Controller:_buildMainWindow()
         Parent = self.MainPanel,
         Rotation = 135,
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(22, 22, 24)),
-            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(14, 14, 16)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 23))
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(128, 76, 87)),
+            ColorSequenceKeypoint.new(0.45, Color3.fromRGB(84, 58, 74)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(63, 47, 61))
         })
     })
 
     local frost = newObject("Frame", {
         Parent = self.MainPanel,
-        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundTransparency = 0.975,
+        BackgroundColor3 = Library.Theme.Frost,
+        BackgroundTransparency = 0.86,
         BorderSizePixel = 0,
         Size = UDim2.fromScale(1, 1),
         ZIndex = 5
     })
-    makeCorner(frost, 8)
+    makeCorner(frost, 18)
     newObject("UIGradient", {
         Parent = frost,
         Rotation = 90,
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(210, 212, 218))
+            ColorSequenceKeypoint.new(0, Library.Theme.Frost),
+            ColorSequenceKeypoint.new(0.4, Color3.fromRGB(255, 233, 241)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(146, 100, 110))
         }),
         Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.92),
-            NumberSequenceKeypoint.new(0.45, 0.98),
-            NumberSequenceKeypoint.new(1, 1)
+            NumberSequenceKeypoint.new(0, 0.08),
+            NumberSequenceKeypoint.new(0.28, 0.34),
+            NumberSequenceKeypoint.new(0.68, 0.64),
+            NumberSequenceKeypoint.new(1, 0.82)
         })
     })
 
     self.MainScale = newObject("UIScale", {
-        Scale = 0.978,
+        Scale = 0.965,
         Parent = self.MainPanel
     })
 
     local dragBar = newObject("Frame", {
         Parent = self.MainPanel,
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, -144, 0, 48),
+        Size = UDim2.new(1, -180, 0, 60),
         Position = UDim2.new(0, 0, 0, 0),
         ZIndex = 6
     })
     self:_enableDragging(dragBar, self.MainPanel)
 
+    newObject("Frame", {
+        Parent = self.MainPanel,
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BackgroundTransparency = 0.92,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, 0, 0, 72),
+        Size = UDim2.new(1, 0, 0, 1),
+        ZIndex = 7
+    })
+
     self.Sidebar = newObject("Frame", {
         Parent = self.MainPanel,
         BackgroundColor3 = Library.Theme.Sidebar,
-        BackgroundTransparency = 0.08,
+        BackgroundTransparency = 0.46,
         BorderSizePixel = 0,
-        Size = UDim2.new(0, 190, 1, 0),
+        Position = UDim2.new(0, 0, 0, 73),
+        Size = UDim2.new(0, 236, 1, -73),
         ZIndex = 6
     })
-    makeCorner(self.Sidebar, 8)
+    makeCorner(self.Sidebar, 18)
+    makeInnerBorder(self.Sidebar, 18, 0.82)
 
     newObject("Frame", {
         Parent = self.Sidebar,
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundTransparency = 0.94,
+        BackgroundTransparency = 0.92,
         BorderSizePixel = 0,
         Position = UDim2.new(1, -1, 0, 0),
         Size = UDim2.new(0, 1, 1, 0),
         ZIndex = 7
     })
 
+    self.SearchBar = makeGlass(self.MainPanel, {
+        Name = "SearchBar",
+        Size = UDim2.new(1, -32, 0, 54),
+        Position = UDim2.new(0, 16, 0, 10),
+        BackgroundColor3 = Color3.fromRGB(88, 61, 73),
+        BackgroundTransparency = 0.56,
+        Radius = 14,
+        ZIndex = 8,
+        StrokeTransparency = 0.52,
+        InnerStrokeTransparency = 0.84,
+        TintTransparency = 0.86
+    })
+    self:_animateStroke(self.SearchBar, 0.24)
+
+    local backSurface = self:_makeInteractiveSurface(self.SearchBar, UDim2.fromOffset(34, 34))
+    backSurface.Position = UDim2.new(0, 10, 0.5, -17)
+    backSurface.BackgroundTransparency = 0.5
+    backSurface.ZIndex = 9
+
+    local backButton = newObject("TextButton", {
+        Parent = backSurface,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamMedium,
+        Text = "<",
+        TextColor3 = Library.Theme.Text,
+        TextSize = 16,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 10
+    })
+    self:_addHoverAnimation(backSurface, backButton, 0.5, 0.38)
+    self:_connect(backButton.MouseButton1Click, function()
+        self:_toggleWindow()
+    end)
+
+    self.SearchInput = newObject("TextBox", {
+        Parent = self.SearchBar,
+        BackgroundTransparency = 1,
+        ClearTextOnFocus = false,
+        Font = Enum.Font.Gotham,
+        PlaceholderText = "Search for commands and content...",
+        PlaceholderColor3 = Library.Theme.MutedText,
+        Text = "",
+        TextColor3 = Library.Theme.Text,
+        TextSize = 18,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Position = UDim2.new(0, 56, 0, 0),
+        Size = UDim2.new(1, -230, 1, 0),
+        ZIndex = 10
+    })
+
+    local askBadge = makeGlass(self.SearchBar, {
+        Size = UDim2.fromOffset(116, 34),
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -10, 0.5, 0),
+        BackgroundColor3 = Color3.fromRGB(92, 66, 79),
+        BackgroundTransparency = 0.6,
+        Radius = 12,
+        ZIndex = 9,
+        StrokeTransparency = 0.58
+    })
+
+    newObject("TextLabel", {
+        Parent = askBadge,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.Gotham,
+        Text = "Ask AI   Tab",
+        TextColor3 = Library.Theme.MutedText,
+        TextSize = 12,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 10
+    })
+
     local titleBlock = newObject("Frame", {
         Parent = self.Sidebar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 14, 0, 14),
-        Size = UDim2.new(1, -28, 0, 70),
+        Position = UDim2.new(0, 16, 0, 18),
+        Size = UDim2.new(1, -32, 0, 60),
         ZIndex = 7
     })
 
@@ -673,11 +962,11 @@ function Controller:_buildMainWindow()
         Font = Enum.Font.GothamMedium,
         Text = self.Config.Name or "Daw1dk Glass",
         TextColor3 = Library.Theme.Text,
-        TextSize = 17,
+        TextSize = 15,
         TextWrapped = true,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Top,
-        Size = UDim2.new(1, 0, 0, 28),
+        Size = UDim2.new(1, 0, 0, 22),
         ZIndex = 7
     })
 
@@ -685,13 +974,13 @@ function Controller:_buildMainWindow()
         Parent = titleBlock,
         BackgroundTransparency = 1,
         Font = Enum.Font.Gotham,
-        Text = self.Config.LoadingSubtitle or "Raycast-inspired command shell",
+        Text = "Categories",
         TextColor3 = Library.Theme.MutedText,
         TextSize = 12,
         TextWrapped = true,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Top,
-        Position = UDim2.new(0, 0, 0, 26),
+        Position = UDim2.new(0, 0, 0, 24),
         Size = UDim2.new(1, 0, 0, 30),
         ZIndex = 7
     })
@@ -700,8 +989,8 @@ function Controller:_buildMainWindow()
         Parent = self.Sidebar,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.new(0, 12, 0, 92),
-        Size = UDim2.new(1, -24, 1, -106),
+        Position = UDim2.new(0, 12, 0, 84),
+        Size = UDim2.new(1, -24, 1, -96),
         ScrollBarThickness = 2,
         ScrollBarImageTransparency = 0.72,
         CanvasSize = UDim2.new(),
@@ -720,46 +1009,42 @@ function Controller:_buildMainWindow()
     local rightSide = newObject("Frame", {
         Parent = self.MainPanel,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 202, 0, 0),
-        Size = UDim2.new(1, -214, 1, 0),
+        Position = UDim2.new(0, 252, 0, 88),
+        Size = UDim2.new(1, -268, 1, -104),
         ZIndex = 6
     })
 
     local topBlock = newObject("Frame", {
         Parent = rightSide,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 0, 0, 14),
-        Size = UDim2.new(1, 0, 0, 54),
+        Position = UDim2.new(0, 0, 0, 0),
+        Size = UDim2.new(1, 0, 0, 62),
         ZIndex = 6
     })
 
-    self.CommandBar = self:_makeInteractiveSurface(topBlock, UDim2.new(1, -118, 0, 42))
+    self.CommandBar = makeGlass(topBlock, {
+        Size = UDim2.new(1, 0, 0, 58),
+        BackgroundColor3 = Color3.fromRGB(92, 64, 79),
+        BackgroundTransparency = 0.62,
+        Radius = 14,
+        ZIndex = 7,
+        StrokeTransparency = 0.58,
+        InnerStrokeTransparency = 0.88
+    })
     self.CommandBar.Position = UDim2.new(0, 0, 0, 0)
-    self.CommandBar.BackgroundTransparency = 0.14
     self.CommandBar.ZIndex = 7
     self:_animateStroke(self.CommandBar, 0.3)
-
-    local commandDot = newObject("Frame", {
-        Parent = self.CommandBar,
-        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundTransparency = 0.06,
-        BorderSizePixel = 0,
-        Position = UDim2.new(0, 14, 0.5, -4),
-        Size = UDim2.fromOffset(8, 8),
-        ZIndex = 8
-    })
-    makeCorner(commandDot, 999)
 
     self.CurrentTabLabel = newObject("TextLabel", {
         Parent = self.CommandBar,
         BackgroundTransparency = 1,
-        Font = Enum.Font.GothamMedium,
-        Text = "Main",
+        Font = Enum.Font.GothamBold,
+        Text = "Results",
         TextColor3 = Library.Theme.Text,
-        TextSize = 14,
+        TextSize = 16,
         TextXAlignment = Enum.TextXAlignment.Left,
-        Position = UDim2.new(0, 32, 0, 0),
-        Size = UDim2.new(0.44, 0, 1, 0),
+        Position = UDim2.new(0, 18, 0, 7),
+        Size = UDim2.new(0.44, 0, 0, 20),
         ZIndex = 8
     })
 
@@ -767,19 +1052,25 @@ function Controller:_buildMainWindow()
         Parent = self.CommandBar,
         BackgroundTransparency = 1,
         Font = Enum.Font.Gotham,
-        Text = "Use the left rail to navigate controls",
+        Text = "Suggestions and actions",
         TextColor3 = Library.Theme.MutedText,
         TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Right,
-        Position = UDim2.new(0.44, 0, 0, 0),
-        Size = UDim2.new(0.56, -12, 1, 0),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Position = UDim2.new(0, 18, 0, 28),
+        Size = UDim2.new(0.56, -12, 0, 16),
         ZIndex = 8
     })
 
-    local toggleBadge = self:_makeInteractiveSurface(topBlock, UDim2.fromOffset(104, 42))
+    local toggleBadge = makeGlass(topBlock, {
+        Size = UDim2.fromOffset(122, 34),
+        Radius = 12,
+        BackgroundColor3 = Color3.fromRGB(93, 68, 80),
+        BackgroundTransparency = 0.62,
+        StrokeTransparency = 0.66,
+        ZIndex = 7
+    })
     toggleBadge.AnchorPoint = Vector2.new(1, 0)
     toggleBadge.Position = UDim2.new(1, 0, 0, 0)
-    toggleBadge.BackgroundTransparency = 0.14
     toggleBadge.ZIndex = 7
 
     self.ToggleHintLabel = newObject("TextLabel", {
@@ -796,15 +1087,21 @@ function Controller:_buildMainWindow()
     self.PageHolder = newObject("Frame", {
         Parent = rightSide,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 0, 0, 76),
-        Size = UDim2.new(1, 0, 1, -142),
+        Position = UDim2.new(0, 0, 0, 74),
+        Size = UDim2.new(1, 0, 1, -134),
         ZIndex = 6
     })
 
-    self.ActionBar = self:_makeInteractiveSurface(rightSide, UDim2.new(1, 0, 0, 46))
+    self.ActionBar = makeGlass(rightSide, {
+        Size = UDim2.new(1, 0, 0, 42),
+        BackgroundColor3 = Color3.fromRGB(92, 64, 78),
+        BackgroundTransparency = 0.62,
+        Radius = 14,
+        ZIndex = 7,
+        StrokeTransparency = 0.62
+    })
     self.ActionBar.AnchorPoint = Vector2.new(0, 1)
-    self.ActionBar.Position = UDim2.new(0, 0, 1, -14)
-    self.ActionBar.BackgroundTransparency = 0.14
+    self.ActionBar.Position = UDim2.new(0, 0, 1, -6)
     self.ActionBar.ZIndex = 7
     self:_animateStroke(self.ActionBar, 0.26)
 
@@ -815,7 +1112,7 @@ function Controller:_buildMainWindow()
         Text = "Enter Select    " .. keybindToText(self.ToggleKeybind) .. " Toggle UI    M Minimize",
         TextColor3 = Library.Theme.MutedText,
         TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        TextXAlignment = Enum.TextXAlignment.Right,
         Position = UDim2.new(0, 14, 0, 0),
         Size = UDim2.new(1, -28, 1, 0),
         ZIndex = 8
@@ -825,45 +1122,57 @@ function Controller:_buildMainWindow()
         Parent = self.MainPanel,
         BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -14, 0, 14),
-        Size = UDim2.fromOffset(96, 34),
+        Position = UDim2.new(1, -18, 0, 18),
+        Size = UDim2.fromOffset(112, 34),
         ZIndex = 8
     })
 
-    self.HideSurface = self:_makeInteractiveSurface(buttonsHolder, UDim2.fromOffset(42, 34))
+    self.HideSurface = makeGlass(buttonsHolder, {
+        Size = UDim2.fromOffset(52, 34),
+        BackgroundColor3 = Color3.fromRGB(90, 62, 76),
+        BackgroundTransparency = 0.6,
+        Radius = 12,
+        ZIndex = 8,
+        StrokeTransparency = 0.68
+    })
     self.HideSurface.Position = UDim2.new(0, 0, 0, 0)
-    self.HideSurface.BackgroundTransparency = 0.16
     self.HideSurface.ZIndex = 8
 
     local hideButton = newObject("TextButton", {
         Parent = self.HideSurface,
         BackgroundTransparency = 1,
-        Text = "o",
-        Font = Enum.Font.Code,
+        Text = "Hide",
+        Font = Enum.Font.GothamMedium,
         TextColor3 = Library.Theme.Text,
-        TextSize = 16,
+        TextSize = 13,
         Size = UDim2.fromScale(1, 1),
         ZIndex = 9
     })
 
-    self.MinimizeSurface = self:_makeInteractiveSurface(buttonsHolder, UDim2.fromOffset(42, 34))
-    self.MinimizeSurface.Position = UDim2.new(0, 48, 0, 0)
-    self.MinimizeSurface.BackgroundTransparency = 0.16
+    self.MinimizeSurface = makeGlass(buttonsHolder, {
+        Size = UDim2.fromOffset(52, 34),
+        BackgroundColor3 = Color3.fromRGB(90, 62, 76),
+        BackgroundTransparency = 0.6,
+        Radius = 12,
+        ZIndex = 8,
+        StrokeTransparency = 0.68
+    })
+    self.MinimizeSurface.Position = UDim2.new(0, 60, 0, 0)
     self.MinimizeSurface.ZIndex = 8
 
     local minimizeButton = newObject("TextButton", {
         Parent = self.MinimizeSurface,
         BackgroundTransparency = 1,
-        Text = "-",
+        Text = "Min",
         Font = Enum.Font.GothamMedium,
         TextColor3 = Library.Theme.Text,
-        TextSize = 18,
+        TextSize = 13,
         Size = UDim2.fromScale(1, 1),
         ZIndex = 9
     })
 
-    self:_addHoverAnimation(self.HideSurface, hideButton, 0.16, 0.07)
-    self:_addHoverAnimation(self.MinimizeSurface, minimizeButton, 0.16, 0.07)
+    self:_addHoverAnimation(self.HideSurface, hideButton, 0.6, 0.46)
+    self:_addHoverAnimation(self.MinimizeSurface, minimizeButton, 0.6, 0.46)
 
     self:_connect(hideButton.MouseButton1Click, function()
         self:_toggleWindow()
@@ -873,10 +1182,16 @@ function Controller:_buildMainWindow()
         self:_minimizeWindow()
     end)
 
-    self.DockSurface = self:_makeInteractiveSurface(self.MainOverlay, UDim2.fromOffset(190, 42))
+    self.DockSurface = makeGlass(self.MainOverlay, {
+        Size = UDim2.fromOffset(240, 44),
+        BackgroundColor3 = Color3.fromRGB(91, 64, 77),
+        BackgroundTransparency = 0.58,
+        Radius = 14,
+        ZIndex = 10,
+        StrokeTransparency = 0.56
+    })
     self.DockSurface.AnchorPoint = Vector2.new(1, 1)
     self.DockSurface.Position = UDim2.new(1, -18, 1, -18)
-    self.DockSurface.BackgroundTransparency = 0.12
     self.DockSurface.Visible = false
     self.DockSurface.ZIndex = 10
     self:_animateStroke(self.DockSurface, 0.28)
@@ -901,7 +1216,7 @@ end
 function Controller:_buildKeyOverlay()
     self.KeyOverlay = newObject("Frame", {
         Parent = self.Root,
-        BackgroundColor3 = Color3.fromRGB(78, 81, 88),
+        BackgroundColor3 = Library.Theme.Overlay,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Size = UDim2.fromScale(1, 1),
@@ -909,36 +1224,93 @@ function Controller:_buildKeyOverlay()
         ZIndex = 10
     })
 
+    makeGlow(self.KeyOverlay, {
+        BackgroundColor3 = Library.Theme.WarmGlow,
+        BackgroundTransparency = 0.84,
+        Position = UDim2.new(0.5, -260, 0.22, -30),
+        Size = UDim2.fromOffset(520, 220),
+        Rotation = -12,
+        Radius = 999,
+        ZIndex = 10,
+        ColorSequence = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 165, 147)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(111, 48, 60))
+        }),
+        TransparencySequence = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.82),
+            NumberSequenceKeypoint.new(0.7, 0.94),
+            NumberSequenceKeypoint.new(1, 1)
+        })
+    })
+
+    makeGlow(self.KeyOverlay, {
+        BackgroundColor3 = Library.Theme.CoolGlow,
+        BackgroundTransparency = 0.88,
+        Position = UDim2.new(0.66, -100, 0.74, -90),
+        Size = UDim2.fromOffset(420, 170),
+        Rotation = 10,
+        Radius = 999,
+        ZIndex = 10,
+        ColorSequence = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(171, 129, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 55, 125))
+        }),
+        TransparencySequence = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.84),
+            NumberSequenceKeypoint.new(0.68, 0.95),
+            NumberSequenceKeypoint.new(1, 1)
+        })
+    })
+
     self.KeyPanel = makeGlass(self.KeyOverlay, {
         Name = "KeyPanel",
-        Size = UDim2.fromOffset(500, 340),
+        Size = UDim2.fromOffset(560, 360),
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.56),
         BackgroundColor3 = Library.Theme.Surface,
-        BackgroundTransparency = 0.08,
-        Radius = 8,
+        BackgroundTransparency = 0.56,
+        Radius = 18,
         ZIndex = 11,
-        Visible = false
+        Visible = false,
+        StrokeTransparency = 0.34,
+        InnerStrokeTransparency = 0.72,
+        TintTransparency = 0.88
     })
     self:_animateStroke(self.KeyPanel, 0.24)
 
-    self.KeyScale = newObject("UIScale", {
+    newObject("UIGradient", {
         Parent = self.KeyPanel,
-        Scale = 0.97
+        Rotation = 135,
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(122, 76, 88)),
+            ColorSequenceKeypoint.new(0.46, Color3.fromRGB(84, 59, 76)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(63, 46, 58))
+        })
     })
 
-    makePadding(self.KeyPanel, 24, 24, 24, 24)
+    self.KeyScale = newObject("UIScale", {
+        Parent = self.KeyPanel,
+        Scale = 0.96
+    })
+
+    makePadding(self.KeyPanel, 28, 28, 28, 28)
 
     local profileRow = newObject("Frame", {
         Parent = self.KeyPanel,
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 116),
+        Size = UDim2.new(1, 0, 0, 124),
         ZIndex = 12
     })
 
-    local avatarSurface = self:_makeInteractiveSurface(profileRow, UDim2.fromOffset(92, 92))
-    avatarSurface.Position = UDim2.new(0, 0, 0, 10)
-    avatarSurface.BackgroundTransparency = 0.12
+    local avatarSurface = makeGlass(profileRow, {
+        Size = UDim2.fromOffset(96, 96),
+        Position = UDim2.new(0, 0, 0, 10),
+        BackgroundColor3 = Color3.fromRGB(84, 53, 64),
+        BackgroundTransparency = 0.5,
+        Radius = 16,
+        ZIndex = 12,
+        StrokeTransparency = 0.42
+    })
     avatarSurface.ZIndex = 12
 
     local avatar = newObject("ImageLabel", {
@@ -949,7 +1321,7 @@ function Controller:_buildKeyOverlay()
         ScaleType = Enum.ScaleType.Crop,
         ZIndex = 13
     })
-    makeCorner(avatar, 6)
+    makeCorner(avatar, 12)
 
     local thumbnail = ""
     pcall(function()
@@ -971,7 +1343,7 @@ function Controller:_buildKeyOverlay()
         Font = Enum.Font.GothamBold,
         Text = (self.Config.KeySettings and self.Config.KeySettings.Title) or "Key System",
         TextColor3 = Library.Theme.Text,
-        TextSize = 26,
+        TextSize = 27,
         TextXAlignment = Enum.TextXAlignment.Left,
         Size = UDim2.new(1, 0, 0, 32),
         ZIndex = 13
@@ -1021,13 +1393,19 @@ function Controller:_buildKeyOverlay()
     self.KeyEntryBlock = newObject("Frame", {
         Parent = self.KeyPanel,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 24, 0, 160),
-        Size = UDim2.new(1, -48, 0, 140),
+        Position = UDim2.new(0, 28, 0, 178),
+        Size = UDim2.new(1, -56, 0, 148),
         ZIndex = 12
     })
 
-    local keyInputSurface = self:_makeInteractiveSurface(self.KeyEntryBlock, UDim2.new(1, 0, 0, 54))
-    keyInputSurface.BackgroundTransparency = 0.18
+    local keyInputSurface = makeGlass(self.KeyEntryBlock, {
+        Size = UDim2.new(1, 0, 0, 56),
+        BackgroundColor3 = Color3.fromRGB(93, 64, 78),
+        BackgroundTransparency = 0.56,
+        Radius = 14,
+        ZIndex = 12,
+        StrokeTransparency = 0.4
+    })
     keyInputSurface.ZIndex = 12
 
     self.KeyInput = newObject("TextBox", {
@@ -1046,9 +1424,15 @@ function Controller:_buildKeyOverlay()
         ZIndex = 13
     })
 
-    local confirmSurface = self:_makeInteractiveSurface(self.KeyEntryBlock, UDim2.new(0.56, -6, 0, 48))
-    confirmSurface.Position = UDim2.new(0, 0, 0, 70)
-    confirmSurface.BackgroundTransparency = 0.16
+    local confirmSurface = makeGlass(self.KeyEntryBlock, {
+        Size = UDim2.new(0.56, -6, 0, 48),
+        Position = UDim2.new(0, 0, 0, 76),
+        BackgroundColor3 = Color3.fromRGB(108, 76, 90),
+        BackgroundTransparency = 0.5,
+        Radius = 14,
+        ZIndex = 12,
+        StrokeTransparency = 0.38
+    })
     confirmSurface.ZIndex = 12
 
     local confirmButton = newObject("TextButton", {
@@ -1061,11 +1445,17 @@ function Controller:_buildKeyOverlay()
         Size = UDim2.fromScale(1, 1),
         ZIndex = 13
     })
-    self:_addHoverAnimation(confirmSurface, confirmButton, 0.16, 0.05)
+    self:_addHoverAnimation(confirmSurface, confirmButton, 0.5, 0.36)
 
-    local saveSurface = self:_makeInteractiveSurface(self.KeyEntryBlock, UDim2.new(0.44, -6, 0, 48))
-    saveSurface.Position = UDim2.new(0.56, 6, 0, 70)
-    saveSurface.BackgroundTransparency = 0.2
+    local saveSurface = makeGlass(self.KeyEntryBlock, {
+        Size = UDim2.new(0.44, -6, 0, 48),
+        Position = UDim2.new(0.56, 6, 0, 76),
+        BackgroundColor3 = Color3.fromRGB(90, 63, 76),
+        BackgroundTransparency = 0.58,
+        Radius = 14,
+        ZIndex = 12,
+        StrokeTransparency = 0.44
+    })
     saveSurface.ZIndex = 12
 
     newObject("TextLabel", {
@@ -1087,7 +1477,7 @@ function Controller:_buildKeyOverlay()
         TextColor3 = Library.Theme.MutedText,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
-        Position = UDim2.new(0, 0, 0, 126),
+        Position = UDim2.new(0, 0, 0, 132),
         Size = UDim2.new(1, 0, 0, 14),
         ZIndex = 13
     })
@@ -1112,7 +1502,7 @@ function Controller:_showLoading()
     self.LoadingFill.Size = UDim2.new(0, 0, 1, 0)
 
     self:_tween(self.LoadingOverlay, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        BackgroundTransparency = 0.4
+        BackgroundTransparency = 0.82
     })
     self:_tween(self.LoadingPanel, TweenInfo.new(0.38, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
         Position = UDim2.fromScale(0.5, 0.5)
@@ -1150,10 +1540,10 @@ function Controller:_showKeyOverlay()
     self.KeyOverlay.BackgroundTransparency = 1
     self.KeyPanel.Position = UDim2.fromScale(0.5, 0.56)
     self.KeyScale.Scale = 0.97
-    self.KeyEntryBlock.Position = UDim2.new(0, 24, 0, 174)
+    self.KeyEntryBlock.Position = UDim2.new(0, 28, 0, 188)
 
     self:_tween(self.KeyOverlay, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        BackgroundTransparency = 0.28
+        BackgroundTransparency = 0.72
     })
     self:_tween(self.KeyPanel, TweenInfo.new(0.42, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
         Position = UDim2.fromScale(0.5, 0.5)
@@ -1167,7 +1557,7 @@ function Controller:_showKeyOverlay()
             return
         end
         self:_tween(self.KeyEntryBlock, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Position = UDim2.new(0, 24, 0, 160)
+            Position = UDim2.new(0, 28, 0, 178)
         })
     end)
 end
@@ -1200,9 +1590,10 @@ function Controller:_showMainWindow()
     self.MainScale.Scale = 0.978
     self.WindowVisible = true
     self.Minimized = false
+    self:_setBlur(22)
 
     self:_tween(self.MainOverlay, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        BackgroundTransparency = 1
+        BackgroundTransparency = 0.94
     })
     self:_tween(self.MainPanel, TweenInfo.new(0.42, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
         Position = UDim2.fromScale(0.5, 0.5)
@@ -1214,6 +1605,7 @@ end
 
 function Controller:_hideMainWindow()
     self.WindowVisible = false
+    self:_setBlur(0)
     self:_tween(self.MainOverlay, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
         BackgroundTransparency = 1
     })
@@ -1237,9 +1629,11 @@ end
 function Controller:_showDock()
     self.MainOverlay.Visible = true
     self.DockSurface.Visible = true
+    self.MainOverlay.BackgroundTransparency = 1
     self.DockSurface.Position = UDim2.new(1, 8, 1, -18)
     self.WindowVisible = true
     self.Minimized = true
+    self:_setBlur(0)
 
     self:_tween(self.DockSurface, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
         Position = UDim2.new(1, -18, 1, -18)
@@ -1248,6 +1642,7 @@ end
 
 function Controller:_hideDock()
     self.WindowVisible = false
+    self:_setBlur(0)
     self:_tween(self.DockSurface, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
         Position = UDim2.new(1, 8, 1, -18)
     })
@@ -1271,6 +1666,7 @@ function Controller:_minimizeWindow()
 
     self.Minimized = true
     self.WindowVisible = false
+    self:_setBlur(0)
 
     self:_tween(self.MainPanel, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
         Position = UDim2.fromScale(0.5, 0.54)
@@ -1456,7 +1852,7 @@ function Controller:_selectTab(tabRecord)
         record.Page.Position = selected and UDim2.new(0, 10, 0, 0) or UDim2.new()
 
         self:_tween(record.ButtonSurface, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            BackgroundTransparency = selected and 0.08 or 0.22
+            BackgroundTransparency = selected and 0.34 or 0.58
         })
 
         self:_tween(record.TitleLabel, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -1479,7 +1875,7 @@ function Controller:_selectTab(tabRecord)
     self.SelectedTab = tabRecord
     self.CurrentTabLabel.Text = tabRecord.Name
     if self.CommandHint then
-        self.CommandHint.Text = "Focused on " .. tabRecord.Name
+        self.CommandHint.Text = "Browsing " .. tabRecord.Name
     end
 end
 
@@ -1488,10 +1884,11 @@ function Controller:_createTab(name, icon)
         Name = tostring(name or "Tab")
     }
 
-    local buttonSurface = self:_makeInteractiveSurface(self.TabScroll, UDim2.new(1, -4, 0, 38))
-    buttonSurface.BackgroundTransparency = 0.22
+    local buttonSurface = self:_makeInteractiveSurface(self.TabScroll, UDim2.new(1, -4, 0, 42))
+    buttonSurface.BackgroundTransparency = 0.58
     buttonSurface.LayoutOrder = #self.Tabs + 1
     buttonSurface.ZIndex = 8
+    self:_animateStroke(buttonSurface, 0.16)
 
     local hitbox = newObject("TextButton", {
         Parent = buttonSurface,
@@ -1504,10 +1901,10 @@ function Controller:_createTab(name, icon)
     local indicator = newObject("Frame", {
         Parent = buttonSurface,
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundTransparency = 0.12,
+        BackgroundTransparency = 0.36,
         BorderSizePixel = 0,
-        Position = UDim2.new(0, 0, 0.16, 0),
-        Size = UDim2.new(0, 2, 0.68, 0),
+        Position = UDim2.new(0, 8, 0.18, 0),
+        Size = UDim2.new(0, 3, 0.64, 0),
         Visible = false,
         ZIndex = 10
     })
@@ -1516,11 +1913,11 @@ function Controller:_createTab(name, icon)
     local iconLabel = newObject("ImageLabel", {
         Parent = buttonSurface,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0.5, -9),
-        Size = UDim2.fromOffset(18, 18),
+        Position = UDim2.new(0, 16, 0.5, -8),
+        Size = UDim2.fromOffset(16, 16),
         Image = "",
         ImageColor3 = Color3.fromRGB(255, 255, 255),
-        ImageTransparency = 0.2,
+        ImageTransparency = 0.24,
         ZIndex = 10
     })
 
@@ -1542,8 +1939,8 @@ function Controller:_createTab(name, icon)
         TextColor3 = Library.Theme.MutedText,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
-        Position = UDim2.new(0, 40, 0, 0),
-        Size = UDim2.new(1, -46, 1, 0),
+        Position = UDim2.new(0, 44, 0, 0),
+        Size = UDim2.new(1, -52, 1, 0),
         ZIndex = 10
     })
 
@@ -1571,7 +1968,7 @@ function Controller:_createTab(name, icon)
         self:_updateScrollCanvas(page, layout)
     end)
 
-    self:_addHoverAnimation(buttonSurface, hitbox, 0.22, 0.12)
+    self:_addHoverAnimation(buttonSurface, hitbox, 0.58, 0.46)
     self:_connect(hitbox.MouseButton1Click, function()
         self:_selectTab(record)
     end)
@@ -1755,8 +2152,9 @@ end
 
 function TabMethods:_newItem(height)
     local panel = self._controller:_makeInteractiveSurface(self._record.Page, UDim2.new(1, -6, 0, height))
-    panel.BackgroundTransparency = 0.16
+    panel.BackgroundTransparency = 0.5
     panel.ZIndex = 8
+    self._controller:_animateStroke(panel, 0.14)
     return panel
 end
 
@@ -1791,7 +2189,8 @@ function TabMethods:CreateParagraph(options)
     local panel = self:_newItem(0)
     panel.AutomaticSize = Enum.AutomaticSize.Y
     panel.Size = UDim2.new(1, -6, 0, 0)
-    makePadding(panel, 16, 16, 14, 14)
+    panel.BackgroundTransparency = 0.54
+    makePadding(panel, 18, 18, 16, 16)
 
     newObject("UIListLayout", {
         Parent = panel,
@@ -1865,9 +2264,9 @@ end
 
 function TabMethods:CreateButton(options)
     local config = options or {}
-    local panel = self:_newItem(44)
-    panel.BackgroundTransparency = 0.14
-    makePadding(panel, 14, 14, 0, 0)
+    local panel = self:_newItem(48)
+    panel.BackgroundTransparency = 0.5
+    makePadding(panel, 18, 18, 0, 0)
 
     local button = newObject("TextButton", {
         Parent = panel,
@@ -1877,7 +2276,7 @@ function TabMethods:CreateButton(options)
         TextColor3 = Library.Theme.Text,
         TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left,
-        Size = UDim2.new(1, -18, 1, 0),
+        Size = UDim2.new(1, -70, 1, 0),
         ZIndex = 9
     })
 
@@ -1885,16 +2284,16 @@ function TabMethods:CreateButton(options)
         Parent = panel,
         BackgroundTransparency = 1,
         Font = Enum.Font.Gotham,
-        Text = ">",
+        Text = "Enter",
         TextColor3 = Library.Theme.MutedText,
-        TextSize = 14,
+        TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Right,
-        Position = UDim2.new(1, -18, 0, 0),
-        Size = UDim2.new(0, 18, 1, 0),
+        Position = UDim2.new(1, -56, 0, 0),
+        Size = UDim2.new(0, 56, 1, 0),
         ZIndex = 9
     })
 
-    self._controller:_addHoverAnimation(panel, button, 0.14, 0.06)
+    self._controller:_addHoverAnimation(panel, button, 0.5, 0.4)
     self._controller:_connect(button.MouseButton1Click, function()
         safeCall(config.Callback)
     end)
@@ -1909,9 +2308,9 @@ function TabMethods:CreateToggle(options)
     local config = options or {}
     local state = not not config.CurrentValue
 
-    local panel = self:_newItem(46)
-    panel.BackgroundTransparency = 0.14
-    makePadding(panel, 16, 16, 0, 0)
+    local panel = self:_newItem(50)
+    panel.BackgroundTransparency = 0.5
+    makePadding(panel, 18, 18, 0, 0)
 
     newObject("TextLabel", {
         Parent = panel,
@@ -1928,19 +2327,41 @@ function TabMethods:CreateToggle(options)
     local switch = self._controller:_makeInteractiveSurface(panel, UDim2.fromOffset(48, 24))
     switch.AnchorPoint = Vector2.new(1, 0.5)
     switch.Position = UDim2.new(1, 0, 0.5, 0)
-    switch.BackgroundTransparency = 0.16
+    switch.BackgroundTransparency = 0.54
     switch.ZIndex = 9
+
+    local switchFill = newObject("Frame", {
+        Parent = switch,
+        BackgroundColor3 = Library.Theme.Frost,
+        BackgroundTransparency = 0.72,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 9
+    })
+    makeCorner(switchFill, 8)
+    newObject("UIGradient", {
+        Parent = switchFill,
+        Rotation = 0,
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 250, 252)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 211, 223))
+        }),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.14),
+            NumberSequenceKeypoint.new(1, 0.38)
+        })
+    })
 
     local knob = newObject("Frame", {
         Parent = switch,
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundTransparency = 0.04,
+        BackgroundTransparency = 0.06,
         BorderSizePixel = 0,
         Position = UDim2.new(0, 4, 0.5, -8),
         Size = UDim2.fromOffset(16, 16),
         ZIndex = 10
     })
-    makeCorner(knob, 4)
+    makeCorner(knob, 8)
 
     local hitbox = newObject("TextButton", {
         Parent = panel,
@@ -1954,12 +2375,16 @@ function TabMethods:CreateToggle(options)
         state = not not value
 
         self._controller:_tween(switch, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            BackgroundTransparency = state and 0.06 or 0.16
+            BackgroundTransparency = state and 0.42 or 0.54
+        })
+
+        self._controller:_tween(switchFill, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = state and 0.46 or 0.72
         })
 
         self._controller:_tween(knob, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
             Position = state and UDim2.new(1, -20, 0.5, -8) or UDim2.new(0, 4, 0.5, -8),
-            BackgroundTransparency = state and 0 or 0.04
+            BackgroundTransparency = state and 0.02 or 0.06
         })
 
         if shouldCallback ~= false then
@@ -1967,7 +2392,7 @@ function TabMethods:CreateToggle(options)
         end
     end
 
-    self._controller:_addHoverAnimation(panel, hitbox, 0.14, 0.08)
+    self._controller:_addHoverAnimation(panel, hitbox, 0.5, 0.42)
     self._controller:_connect(hitbox.MouseButton1Click, function()
         setState(not state, true)
     end)
@@ -1987,9 +2412,9 @@ end
 
 function TabMethods:CreateKeybind(options)
     local config = options or {}
-    local panel = self:_newItem(46)
-    panel.BackgroundTransparency = 0.14
-    makePadding(panel, 16, 16, 0, 0)
+    local panel = self:_newItem(50)
+    panel.BackgroundTransparency = 0.5
+    makePadding(panel, 18, 18, 0, 0)
 
     newObject("TextLabel", {
         Parent = panel,
@@ -2003,10 +2428,10 @@ function TabMethods:CreateKeybind(options)
         ZIndex = 9
     })
 
-    local keySurface = self._controller:_makeInteractiveSurface(panel, UDim2.fromOffset(98, 28))
+    local keySurface = self._controller:_makeInteractiveSurface(panel, UDim2.fromOffset(104, 30))
     keySurface.AnchorPoint = Vector2.new(1, 0.5)
     keySurface.Position = UDim2.new(1, 0, 0.5, 0)
-    keySurface.BackgroundTransparency = 0.12
+    keySurface.BackgroundTransparency = 0.5
     keySurface.ZIndex = 9
 
     local keyButton = newObject("TextButton", {
@@ -2029,7 +2454,7 @@ function TabMethods:CreateKeybind(options)
         _changedCallback = config.ChangedCallback or config.Callback
     }, KeybindMethods)
 
-    self._controller:_addHoverAnimation(keySurface, keyButton, 0.12, 0.04)
+    self._controller:_addHoverAnimation(keySurface, keyButton, 0.5, 0.38)
     self._controller:_connect(keyButton.MouseButton1Click, function()
         self._controller.PendingKeybindCapture = widget
         keyButton.Text = "Press key"
@@ -2046,9 +2471,9 @@ function TabMethods:CreateSlider(options)
     local increment = config.Increment or 1
     local current = roundToIncrement(config.CurrentValue or minValue, minValue, maxValue, increment)
 
-    local panel = self:_newItem(74)
-    panel.BackgroundTransparency = 0.14
-    makePadding(panel, 16, 16, 12, 12)
+    local panel = self:_newItem(84)
+    panel.BackgroundTransparency = 0.5
+    makePadding(panel, 18, 18, 14, 12)
 
     newObject("TextLabel", {
         Parent = panel,
@@ -2076,26 +2501,27 @@ function TabMethods:CreateSlider(options)
     })
 
     local bar = self._controller:_makeInteractiveSurface(panel, UDim2.new(1, 0, 0, 12))
-    bar.Position = UDim2.new(0, 0, 0, 40)
-    bar.BackgroundTransparency = 0.16
+    bar.Position = UDim2.new(0, 0, 0, 42)
+    bar.Size = UDim2.new(1, 0, 0, 8)
+    bar.BackgroundTransparency = 0.58
     bar.ZIndex = 9
 
     local fill = newObject("Frame", {
         Parent = bar,
-        BackgroundColor3 = Color3.fromRGB(244, 247, 255),
-        BackgroundTransparency = 0.02,
+        BackgroundColor3 = Color3.fromRGB(253, 250, 252),
+        BackgroundTransparency = 0.22,
         BorderSizePixel = 0,
         Size = UDim2.new(0, 0, 1, 0),
         ZIndex = 10
     })
-    makeCorner(fill, 4)
+    makeCorner(fill, 8)
 
     newObject("UIGradient", {
         Parent = fill,
         Rotation = 0,
         Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(209, 220, 241))
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(233, 223, 232))
         })
     })
 
@@ -2103,13 +2529,13 @@ function TabMethods:CreateSlider(options)
         Parent = bar,
         AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundTransparency = 0.03,
+        BackgroundTransparency = 0.06,
         BorderSizePixel = 0,
         Position = UDim2.new(0, 0, 0.5, 0),
-        Size = UDim2.fromOffset(14, 14),
+        Size = UDim2.fromOffset(16, 16),
         ZIndex = 11
     })
-    makeCorner(knob, 4)
+    makeCorner(knob, 8)
 
     newObject("TextLabel", {
         Parent = panel,
@@ -2119,7 +2545,7 @@ function TabMethods:CreateSlider(options)
         TextColor3 = Library.Theme.MutedText,
         TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left,
-        Position = UDim2.new(0, 0, 0, 52),
+        Position = UDim2.new(0, 0, 0, 58),
         Size = UDim2.new(0.5, 0, 0, 14),
         ZIndex = 9
     })
@@ -2132,7 +2558,7 @@ function TabMethods:CreateSlider(options)
         TextColor3 = Library.Theme.MutedText,
         TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Right,
-        Position = UDim2.new(0.5, 0, 0, 52),
+        Position = UDim2.new(0.5, 0, 0, 58),
         Size = UDim2.new(0.5, 0, 0, 14),
         ZIndex = 9
     })
@@ -2168,7 +2594,7 @@ function TabMethods:CreateSlider(options)
         renderValue(rawValue, true)
     end
 
-    self._controller:_addHoverAnimation(bar, hitbox, 0.16, 0.08)
+    self._controller:_addHoverAnimation(bar, hitbox, 0.58, 0.46)
     self._controller:_connect(hitbox.MouseButton1Down, function()
         dragging = true
         updateFromMouse()
