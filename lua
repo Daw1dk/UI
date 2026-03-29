@@ -347,6 +347,30 @@ local function makeInnerBorder(parent, radius, transparency)
     return inner
 end
 
+local function makeDivider(parent, properties)
+    local divider = newObject("Frame", {
+        Parent = parent,
+        BackgroundColor3 = properties.Color or Color3.fromRGB(255, 255, 255),
+        BackgroundTransparency = properties.BackgroundTransparency or 0.92,
+        BorderSizePixel = 0,
+        AnchorPoint = properties.AnchorPoint or Vector2.new(),
+        Position = properties.Position or UDim2.new(),
+        Size = properties.Size or UDim2.new(1, 0, 0, 1),
+        ZIndex = properties.ZIndex
+    })
+
+    if properties.Gradient then
+        newObject("UIGradient", {
+            Parent = divider,
+            Rotation = properties.GradientRotation or 0,
+            Color = properties.Gradient,
+            Transparency = properties.Transparency
+        })
+    end
+
+    return divider
+end
+
 local function makeGlass(parent, properties)
     local frame = newObject("Frame", {
         Parent = parent,
@@ -543,34 +567,55 @@ function Controller:_enableDragging(handle, target)
     end)
 end
 
+function Controller:_enableResizing(handle, target, options)
+    local resizing = false
+    local resizeStart
+    local startSize
+    local minSize = options and options.MinSize or Vector2.new(960, 620)
+    local maxSize = options and options.MaxSize or Vector2.new(1560, 940)
+    local onChanged = options and options.Changed
+
+    self:_connect(handle.InputBegan, function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+            return
+        end
+
+        resizing = true
+        resizeStart = input.Position
+        startSize = target.AbsoluteSize
+    end)
+
+    self:_connect(handle.InputEnded, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            resizing = false
+        end
+    end)
+
+    self:_connect(UserInputService.InputChanged, function(input)
+        if not resizing or input.UserInputType ~= Enum.UserInputType.MouseMovement then
+            return
+        end
+
+        local delta = input.Position - resizeStart
+        local width = math.clamp(startSize.X + delta.X, minSize.X, maxSize.X)
+        local height = math.clamp(startSize.Y + delta.Y, minSize.Y, maxSize.Y)
+        target.Size = UDim2.fromOffset(width, height)
+
+        if type(onChanged) == "function" then
+            onChanged(width, height)
+        end
+    end)
+end
+
 function Controller:_updateScrollCanvas(scroll, layout)
     scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
 end
 
 function Controller:_setBlur(size)
-    if not self.Blur then
-        return
+    if self.Blur then
+        self.Blur.Enabled = false
+        self.Blur.Size = 0
     end
-
-    if size <= 0 then
-        self:_tween(self.Blur, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Size = 0
-        })
-        task.delay(0.22, function()
-            if self.Destroyed then
-                return
-            end
-            if self.Blur and self.Blur.Size <= 0.05 then
-                self.Blur.Enabled = false
-            end
-        end)
-        return
-    end
-
-    self.Blur.Enabled = true
-    self:_tween(self.Blur, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Size = size
-    })
 end
 
 function Controller:_buildRoot()
@@ -759,28 +804,28 @@ function Controller:_buildMainWindow()
         Parent = self.MainOverlay,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(900, 610),
+        Size = UDim2.fromOffset(1308, 768),
         BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-        BackgroundTransparency = 0.9,
+        BackgroundTransparency = 0.92,
         BorderSizePixel = 0,
         ZIndex = 4
     })
-    makeCorner(self.MainShadow, 20)
+    makeCorner(self.MainShadow, 22)
 
     self.MainPanel = makeGlass(self.MainOverlay, {
         Name = "MainPanel",
-        Size = UDim2.fromOffset(900, 560),
+        Size = UDim2.fromOffset(1260, 720),
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.54),
         BackgroundColor3 = Library.Theme.Background,
-        BackgroundTransparency = 0.6,
-        Radius = 18,
+        BackgroundTransparency = 0.62,
+        Radius = 20,
         ZIndex = 5,
         Visible = false,
         ClipsDescendants = true,
-        StrokeTransparency = 0.38,
-        InnerStrokeTransparency = 0.78,
-        TintTransparency = 0.88,
+        StrokeTransparency = 0.34,
+        InnerStrokeTransparency = 0.74,
+        TintTransparency = 0.84,
         TintRotation = 90,
         TintSequence = ColorSequence.new({
             ColorSequenceKeypoint.new(0, Library.Theme.Frost),
@@ -788,9 +833,9 @@ function Controller:_buildMainWindow()
             ColorSequenceKeypoint.new(1, Library.Theme.SurfaceAlt)
         }),
         TintTransparencySequence = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.32),
-            NumberSequenceKeypoint.new(0.45, 0.64),
-            NumberSequenceKeypoint.new(1, 0.9)
+            NumberSequenceKeypoint.new(0, 0.24),
+            NumberSequenceKeypoint.new(0.45, 0.54),
+            NumberSequenceKeypoint.new(1, 0.86)
         })
     })
     self:_animateStroke(self.MainPanel, 0.22)
@@ -799,21 +844,22 @@ function Controller:_buildMainWindow()
         Parent = self.MainPanel,
         Rotation = 135,
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(128, 76, 87)),
-            ColorSequenceKeypoint.new(0.45, Color3.fromRGB(84, 58, 74)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(63, 47, 61))
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(122, 74, 83)),
+            ColorSequenceKeypoint.new(0.35, Color3.fromRGB(92, 58, 69)),
+            ColorSequenceKeypoint.new(0.7, Color3.fromRGB(64, 47, 60)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(49, 39, 49))
         })
     })
 
     local frost = newObject("Frame", {
         Parent = self.MainPanel,
         BackgroundColor3 = Library.Theme.Frost,
-        BackgroundTransparency = 0.86,
+        BackgroundTransparency = 0.84,
         BorderSizePixel = 0,
         Size = UDim2.fromScale(1, 1),
         ZIndex = 5
     })
-    makeCorner(frost, 18)
+    makeCorner(frost, 20)
     newObject("UIGradient", {
         Parent = frost,
         Rotation = 90,
@@ -823,10 +869,10 @@ function Controller:_buildMainWindow()
             ColorSequenceKeypoint.new(1, Color3.fromRGB(146, 100, 110))
         }),
         Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.08),
-            NumberSequenceKeypoint.new(0.28, 0.34),
-            NumberSequenceKeypoint.new(0.68, 0.64),
-            NumberSequenceKeypoint.new(1, 0.82)
+            NumberSequenceKeypoint.new(0, 0.04),
+            NumberSequenceKeypoint.new(0.24, 0.24),
+            NumberSequenceKeypoint.new(0.6, 0.52),
+            NumberSequenceKeypoint.new(1, 0.78)
         })
     })
 
@@ -835,64 +881,87 @@ function Controller:_buildMainWindow()
         Parent = self.MainPanel
     })
 
+    newObject("UISizeConstraint", {
+        Parent = self.MainPanel,
+        MinSize = Vector2.new(980, 620),
+        MaxSize = Vector2.new(1560, 940)
+    })
+
+    local function syncPanelGeometry()
+        self.MainShadow.Position = self.MainPanel.Position
+        self.MainShadow.Size = UDim2.new(
+            self.MainPanel.Size.X.Scale,
+            self.MainPanel.Size.X.Offset + 48,
+            self.MainPanel.Size.Y.Scale,
+            self.MainPanel.Size.Y.Offset + 48
+        )
+    end
+
+    self:_connect(self.MainPanel:GetPropertyChangedSignal("Position"), syncPanelGeometry)
+    self:_connect(self.MainPanel:GetPropertyChangedSignal("Size"), syncPanelGeometry)
+    syncPanelGeometry()
+
     local dragBar = newObject("Frame", {
         Parent = self.MainPanel,
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, -180, 0, 60),
+        Size = UDim2.new(1, -24, 0.1, 0),
         Position = UDim2.new(0, 0, 0, 0),
         ZIndex = 6
     })
     self:_enableDragging(dragBar, self.MainPanel)
 
-    newObject("Frame", {
+    local resizeGrip = newObject("Frame", {
         Parent = self.MainPanel,
-        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundTransparency = 0.92,
-        BorderSizePixel = 0,
-        Position = UDim2.new(0, 0, 0, 72),
-        Size = UDim2.new(1, 0, 0, 1),
-        ZIndex = 7
+        BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(1, 1),
+        Position = UDim2.new(1, -6, 1, -6),
+        Size = UDim2.fromOffset(22, 22),
+        ZIndex = 12
     })
 
-    self.Sidebar = newObject("Frame", {
+    newObject("TextLabel", {
+        Parent = resizeGrip,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.Code,
+        Text = "///",
+        TextColor3 = Library.Theme.MutedText,
+        TextSize = 13,
+        Rotation = -45,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 12
+    })
+    self:_enableResizing(resizeGrip, self.MainPanel, {
+        MinSize = Vector2.new(980, 620),
+        MaxSize = Vector2.new(1560, 940),
+        Changed = function()
+            syncPanelGeometry()
+        end
+    })
+
+    local headerArea = newObject("Frame", {
         Parent = self.MainPanel,
-        BackgroundColor3 = Library.Theme.Sidebar,
-        BackgroundTransparency = 0.46,
-        BorderSizePixel = 0,
-        Position = UDim2.new(0, 0, 0, 73),
-        Size = UDim2.new(0, 236, 1, -73),
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0.1, 0),
         ZIndex = 6
     })
-    makeCorner(self.Sidebar, 18)
-    makeInnerBorder(self.Sidebar, 18, 0.82)
 
-    newObject("Frame", {
-        Parent = self.Sidebar,
-        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundTransparency = 0.92,
-        BorderSizePixel = 0,
-        Position = UDim2.new(1, -1, 0, 0),
-        Size = UDim2.new(0, 1, 1, 0),
-        ZIndex = 7
-    })
-
-    self.SearchBar = makeGlass(self.MainPanel, {
+    self.SearchBar = makeGlass(headerArea, {
         Name = "SearchBar",
-        Size = UDim2.new(1, -32, 0, 54),
-        Position = UDim2.new(0, 16, 0, 10),
-        BackgroundColor3 = Color3.fromRGB(88, 61, 73),
-        BackgroundTransparency = 0.56,
-        Radius = 14,
+        Size = UDim2.new(1, -28, 1, -18),
+        Position = UDim2.new(0, 14, 0, 10),
+        BackgroundColor3 = Color3.fromRGB(94, 62, 74),
+        BackgroundTransparency = 0.54,
+        Radius = 16,
         ZIndex = 8,
-        StrokeTransparency = 0.52,
-        InnerStrokeTransparency = 0.84,
-        TintTransparency = 0.86
+        StrokeTransparency = 0.42,
+        InnerStrokeTransparency = 0.78,
+        TintTransparency = 0.8
     })
     self:_animateStroke(self.SearchBar, 0.24)
 
     local backSurface = self:_makeInteractiveSurface(self.SearchBar, UDim2.fromOffset(34, 34))
-    backSurface.Position = UDim2.new(0, 10, 0.5, -17)
-    backSurface.BackgroundTransparency = 0.5
+    backSurface.Position = UDim2.new(0, 12, 0.5, -17)
+    backSurface.BackgroundTransparency = 0.46
     backSurface.ZIndex = 9
 
     local backButton = newObject("TextButton", {
@@ -910,49 +979,171 @@ function Controller:_buildMainWindow()
         self:_toggleWindow()
     end)
 
+    local headerRight = newObject("Frame", {
+        Parent = self.SearchBar,
+        BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -12, 0.5, 0),
+        Size = UDim2.fromOffset(430, 42),
+        ZIndex = 9
+    })
+
+    local infoSurface = self:_makeInteractiveSurface(headerRight, UDim2.fromOffset(38, 38))
+    infoSurface.Position = UDim2.new(0, 0, 0.5, -19)
+    infoSurface.BackgroundTransparency = 0.52
+    infoSurface.ZIndex = 9
+
+    newObject("TextLabel", {
+        Parent = infoSurface,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        Text = "i",
+        TextColor3 = Library.Theme.Text,
+        TextSize = 16,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 10
+    })
+
+    self.HideSurface = makeGlass(headerRight, {
+        Size = UDim2.fromOffset(52, 38),
+        Position = UDim2.new(0, 50, 0.5, -19),
+        BackgroundColor3 = Color3.fromRGB(90, 62, 76),
+        BackgroundTransparency = 0.6,
+        Radius = 12,
+        ZIndex = 9,
+        StrokeTransparency = 0.64
+    })
+
+    local hideButton = newObject("TextButton", {
+        Parent = self.HideSurface,
+        BackgroundTransparency = 1,
+        Text = "Hide",
+        Font = Enum.Font.GothamMedium,
+        TextColor3 = Library.Theme.Text,
+        TextSize = 13,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 10
+    })
+
+    self.MinimizeSurface = makeGlass(headerRight, {
+        Size = UDim2.fromOffset(52, 38),
+        Position = UDim2.new(0, 110, 0.5, -19),
+        BackgroundColor3 = Color3.fromRGB(90, 62, 76),
+        BackgroundTransparency = 0.6,
+        Radius = 12,
+        ZIndex = 9,
+        StrokeTransparency = 0.64
+    })
+
+    local minimizeButton = newObject("TextButton", {
+        Parent = self.MinimizeSurface,
+        BackgroundTransparency = 1,
+        Text = "Min",
+        Font = Enum.Font.GothamMedium,
+        TextColor3 = Library.Theme.Text,
+        TextSize = 13,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 10
+    })
+
+    local userSurface = makeGlass(headerRight, {
+        Size = UDim2.fromOffset(260, 42),
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, 0, 0.5, 0),
+        BackgroundColor3 = Color3.fromRGB(92, 65, 78),
+        BackgroundTransparency = 0.54,
+        Radius = 13,
+        ZIndex = 9,
+        StrokeTransparency = 0.48
+    })
+
+    newObject("TextLabel", {
+        Parent = userSurface,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamMedium,
+        Text = "User (" .. LocalPlayer.Name .. ")",
+        TextColor3 = Library.Theme.Text,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Position = UDim2.new(0, 18, 0, 0),
+        Size = UDim2.new(1, -44, 1, 0),
+        ZIndex = 10
+    })
+
+    newObject("TextLabel", {
+        Parent = userSurface,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamMedium,
+        Text = "v",
+        TextColor3 = Library.Theme.MutedText,
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Right,
+        Position = UDim2.new(1, -24, 0, 0),
+        Size = UDim2.new(0, 14, 1, 0),
+        ZIndex = 10
+    })
+
     self.SearchInput = newObject("TextBox", {
         Parent = self.SearchBar,
         BackgroundTransparency = 1,
         ClearTextOnFocus = false,
         Font = Enum.Font.Gotham,
-        PlaceholderText = "Search for commands and content...",
+        PlaceholderText = "Search for tabs, actions, and content...",
         PlaceholderColor3 = Library.Theme.MutedText,
         Text = "",
         TextColor3 = Library.Theme.Text,
-        TextSize = 18,
+        TextSize = 20,
         TextXAlignment = Enum.TextXAlignment.Left,
         Position = UDim2.new(0, 56, 0, 0),
-        Size = UDim2.new(1, -230, 1, 0),
+        Size = UDim2.new(1, -508, 1, 0),
         ZIndex = 10
     })
 
-    local askBadge = makeGlass(self.SearchBar, {
-        Size = UDim2.fromOffset(116, 34),
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -10, 0.5, 0),
-        BackgroundColor3 = Color3.fromRGB(92, 66, 79),
-        BackgroundTransparency = 0.6,
-        Radius = 12,
-        ZIndex = 9,
-        StrokeTransparency = 0.58
+    makeDivider(self.MainPanel, {
+        Position = UDim2.new(0, 0, 0.1, 0),
+        Size = UDim2.new(1, 0, 0, 1),
+        BackgroundTransparency = 0.9,
+        ZIndex = 7,
+        Gradient = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(214, 204, 212)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
+        })
     })
 
-    newObject("TextLabel", {
-        Parent = askBadge,
+    makeDivider(self.MainPanel, {
+        Position = UDim2.new(0, 0, 1, -54),
+        AnchorPoint = Vector2.new(0, 1),
+        Size = UDim2.new(1, 0, 0, 1),
+        BackgroundTransparency = 0.9,
+        ZIndex = 7,
+        Gradient = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(214, 204, 212)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
+        })
+    })
+
+    local bodyArea = newObject("Frame", {
+        Parent = self.MainPanel,
         BackgroundTransparency = 1,
-        Font = Enum.Font.Gotham,
-        Text = "Ask AI   Tab",
-        TextColor3 = Library.Theme.MutedText,
-        TextSize = 12,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 10
+        Position = UDim2.new(0, 0, 0.1, 1),
+        Size = UDim2.new(1, 0, 0.9, -56),
+        ZIndex = 6
+    })
+
+    self.Sidebar = newObject("Frame", {
+        Parent = bodyArea,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0.2, 0, 1, 0),
+        ZIndex = 6
     })
 
     local titleBlock = newObject("Frame", {
         Parent = self.Sidebar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 16, 0, 18),
-        Size = UDim2.new(1, -32, 0, 60),
+        Position = UDim2.new(0, 18, 0, 16),
+        Size = UDim2.new(1, -36, 0, 58),
         ZIndex = 7
     })
 
@@ -989,8 +1180,8 @@ function Controller:_buildMainWindow()
         Parent = self.Sidebar,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.new(0, 12, 0, 84),
-        Size = UDim2.new(1, -24, 1, -96),
+        Position = UDim2.new(0, 14, 0, 82),
+        Size = UDim2.new(1, -28, 1, -96),
         ScrollBarThickness = 2,
         ScrollBarImageTransparency = 0.72,
         CanvasSize = UDim2.new(),
@@ -1006,34 +1197,28 @@ function Controller:_buildMainWindow()
         self:_updateScrollCanvas(self.TabScroll, self.TabLayout)
     end)
 
-    local rightSide = newObject("Frame", {
-        Parent = self.MainPanel,
+    makeDivider(bodyArea, {
+        Position = UDim2.new(0.2, 0, 0, 0),
+        Size = UDim2.new(0, 1, 1, 0),
+        BackgroundTransparency = 0.9,
+        ZIndex = 7
+    })
+
+    local resultsColumn = newObject("Frame", {
+        Parent = bodyArea,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 252, 0, 88),
-        Size = UDim2.new(1, -268, 1, -104),
+        Position = UDim2.new(0.2, 0, 0, 0),
+        Size = UDim2.new(0.24, 0, 1, 0),
         ZIndex = 6
     })
 
-    local topBlock = newObject("Frame", {
-        Parent = rightSide,
+    self.CommandBar = newObject("Frame", {
+        Parent = resultsColumn,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 0, 0, 0),
-        Size = UDim2.new(1, 0, 0, 62),
+        Position = UDim2.new(0, 18, 0, 18),
+        Size = UDim2.new(1, -36, 0, 56),
         ZIndex = 6
     })
-
-    self.CommandBar = makeGlass(topBlock, {
-        Size = UDim2.new(1, 0, 0, 58),
-        BackgroundColor3 = Color3.fromRGB(92, 64, 79),
-        BackgroundTransparency = 0.62,
-        Radius = 14,
-        ZIndex = 7,
-        StrokeTransparency = 0.58,
-        InnerStrokeTransparency = 0.88
-    })
-    self.CommandBar.Position = UDim2.new(0, 0, 0, 0)
-    self.CommandBar.ZIndex = 7
-    self:_animateStroke(self.CommandBar, 0.3)
 
     self.CurrentTabLabel = newObject("TextLabel", {
         Parent = self.CommandBar,
@@ -1041,10 +1226,10 @@ function Controller:_buildMainWindow()
         Font = Enum.Font.GothamBold,
         Text = "Results",
         TextColor3 = Library.Theme.Text,
-        TextSize = 16,
+        TextSize = 15,
         TextXAlignment = Enum.TextXAlignment.Left,
-        Position = UDim2.new(0, 18, 0, 7),
-        Size = UDim2.new(0.44, 0, 0, 20),
+        Position = UDim2.new(0, 0, 0, 2),
+        Size = UDim2.new(0.6, 0, 0, 18),
         ZIndex = 8
     })
 
@@ -1056,21 +1241,21 @@ function Controller:_buildMainWindow()
         TextColor3 = Library.Theme.MutedText,
         TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left,
-        Position = UDim2.new(0, 18, 0, 28),
-        Size = UDim2.new(0.56, -12, 0, 16),
+        Position = UDim2.new(0, 0, 0, 24),
+        Size = UDim2.new(0.6, 0, 0, 16),
         ZIndex = 8
     })
 
-    local toggleBadge = makeGlass(topBlock, {
+    local toggleBadge = makeGlass(self.CommandBar, {
         Size = UDim2.fromOffset(122, 34),
         Radius = 12,
         BackgroundColor3 = Color3.fromRGB(93, 68, 80),
-        BackgroundTransparency = 0.62,
-        StrokeTransparency = 0.66,
+        BackgroundTransparency = 0.58,
+        StrokeTransparency = 0.6,
         ZIndex = 7
     })
-    toggleBadge.AnchorPoint = Vector2.new(1, 0)
-    toggleBadge.Position = UDim2.new(1, 0, 0, 0)
+    toggleBadge.AnchorPoint = Vector2.new(1, 0.5)
+    toggleBadge.Position = UDim2.new(1, 0, 0.5, 0)
     toggleBadge.ZIndex = 7
 
     self.ToggleHintLabel = newObject("TextLabel", {
@@ -1085,94 +1270,119 @@ function Controller:_buildMainWindow()
     })
 
     self.PageHolder = newObject("Frame", {
-        Parent = rightSide,
+        Parent = resultsColumn,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 0, 0, 74),
-        Size = UDim2.new(1, 0, 1, -134),
+        Position = UDim2.new(0, 12, 0, 86),
+        Size = UDim2.new(1, -24, 1, -98),
         ZIndex = 6
     })
 
-    self.ActionBar = makeGlass(rightSide, {
-        Size = UDim2.new(1, 0, 0, 42),
-        BackgroundColor3 = Color3.fromRGB(92, 64, 78),
-        BackgroundTransparency = 0.62,
-        Radius = 14,
-        ZIndex = 7,
-        StrokeTransparency = 0.62
+    makeDivider(bodyArea, {
+        Position = UDim2.new(0.44, 0, 0, 0),
+        Size = UDim2.new(0, 1, 1, 0),
+        BackgroundTransparency = 0.9,
+        ZIndex = 7
     })
-    self.ActionBar.AnchorPoint = Vector2.new(0, 1)
-    self.ActionBar.Position = UDim2.new(0, 0, 1, -6)
-    self.ActionBar.ZIndex = 7
-    self:_animateStroke(self.ActionBar, 0.26)
 
-    self.ActionLabel = newObject("TextLabel", {
-        Parent = self.ActionBar,
+    self.DetailPane = newObject("Frame", {
+        Parent = bodyArea,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0.44, 1, 0, 0),
+        Size = UDim2.new(0.56, -1, 1, 0),
+        ZIndex = 6
+    })
+
+    self.DetailPreviewSurface = makeGlass(self.DetailPane, {
+        Size = UDim2.new(1, -28, 0.44, -18),
+        Position = UDim2.new(0, 14, 0, 16),
+        BackgroundColor3 = Color3.fromRGB(94, 64, 76),
+        BackgroundTransparency = 0.68,
+        Radius = 16,
+        ZIndex = 7,
+        StrokeTransparency = 0.56,
+        TintTransparency = 0.8
+    })
+    self:_animateStroke(self.DetailPreviewSurface, 0.18)
+
+    self.DetailGlyph = newObject("TextLabel", {
+        Parent = self.DetailPreviewSurface,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        Text = "R",
+        TextColor3 = Color3.fromRGB(236, 242, 250),
+        TextSize = 94,
+        Position = UDim2.new(0, 0, 0.5, -70),
+        Size = UDim2.new(1, 0, 0, 120),
+        ZIndex = 8
+    })
+
+    self.DetailTitle = newObject("TextLabel", {
+        Parent = self.DetailPane,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        Text = "Overview",
+        TextColor3 = Library.Theme.Text,
+        TextSize = 22,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Position = UDim2.new(0, 18, 0.44, 12),
+        Size = UDim2.new(1, -36, 0, 26),
+        ZIndex = 8
+    })
+
+    self.DetailSubtitle = newObject("TextLabel", {
+        Parent = self.DetailPane,
         BackgroundTransparency = 1,
         Font = Enum.Font.Gotham,
-        Text = "Enter Select    " .. keybindToText(self.ToggleKeybind) .. " Toggle UI    M Minimize",
+        Text = "Selected item",
         TextColor3 = Library.Theme.MutedText,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Right,
-        Position = UDim2.new(0, 14, 0, 0),
-        Size = UDim2.new(1, -28, 1, 0),
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Position = UDim2.new(0, 18, 0.44, 40),
+        Size = UDim2.new(1, -36, 0, 16),
         ZIndex = 8
     })
 
-    local buttonsHolder = newObject("Frame", {
-        Parent = self.MainPanel,
+    self.DetailDescription = newObject("TextLabel", {
+        Parent = self.DetailPane,
         BackgroundTransparency = 1,
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -18, 0, 18),
-        Size = UDim2.fromOffset(112, 34),
+        Font = Enum.Font.Gotham,
+        Text = "Focus a tab or control to see more context and metadata here.",
+        TextColor3 = Library.Theme.MutedText,
+        TextSize = 13,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        Position = UDim2.new(0, 18, 0.44, 66),
+        Size = UDim2.new(1, -36, 0, 42),
         ZIndex = 8
     })
 
-    self.HideSurface = makeGlass(buttonsHolder, {
-        Size = UDim2.fromOffset(52, 34),
-        BackgroundColor3 = Color3.fromRGB(90, 62, 76),
-        BackgroundTransparency = 0.6,
-        Radius = 12,
-        ZIndex = 8,
-        StrokeTransparency = 0.68
-    })
-    self.HideSurface.Position = UDim2.new(0, 0, 0, 0)
-    self.HideSurface.ZIndex = 8
-
-    local hideButton = newObject("TextButton", {
-        Parent = self.HideSurface,
+    newObject("TextLabel", {
+        Parent = self.DetailPane,
         BackgroundTransparency = 1,
-        Text = "Hide",
-        Font = Enum.Font.GothamMedium,
+        Font = Enum.Font.GothamBold,
+        Text = "Metadata",
         TextColor3 = Library.Theme.Text,
-        TextSize = 13,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 9
+        TextSize = 18,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Position = UDim2.new(0, 18, 0.44, 122),
+        Size = UDim2.new(1, -36, 0, 22),
+        ZIndex = 8
     })
 
-    self.MinimizeSurface = makeGlass(buttonsHolder, {
-        Size = UDim2.fromOffset(52, 34),
-        BackgroundColor3 = Color3.fromRGB(90, 62, 76),
-        BackgroundTransparency = 0.6,
-        Radius = 12,
-        ZIndex = 8,
-        StrokeTransparency = 0.68
-    })
-    self.MinimizeSurface.Position = UDim2.new(0, 60, 0, 0)
-    self.MinimizeSurface.ZIndex = 8
-
-    local minimizeButton = newObject("TextButton", {
-        Parent = self.MinimizeSurface,
+    self.DetailMetaHolder = newObject("Frame", {
+        Parent = self.DetailPane,
         BackgroundTransparency = 1,
-        Text = "Min",
-        Font = Enum.Font.GothamMedium,
-        TextColor3 = Library.Theme.Text,
-        TextSize = 13,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 9
+        Position = UDim2.new(0, 18, 0.44, 154),
+        Size = UDim2.new(1, -36, 0.56, -170),
+        ZIndex = 8
     })
 
-    self:_addHoverAnimation(self.HideSurface, hideButton, 0.6, 0.46)
-    self:_addHoverAnimation(self.MinimizeSurface, minimizeButton, 0.6, 0.46)
+    self.DetailMetaLayout = newObject("UIListLayout", {
+        Parent = self.DetailMetaHolder,
+        Padding = UDim.new(0, 0),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
 
     self:_connect(hideButton.MouseButton1Click, function()
         self:_toggleWindow()
@@ -1181,6 +1391,70 @@ function Controller:_buildMainWindow()
     self:_connect(minimizeButton.MouseButton1Click, function()
         self:_minimizeWindow()
     end)
+
+    self:_addHoverAnimation(self.HideSurface, hideButton, 0.6, 0.46)
+    self:_addHoverAnimation(self.MinimizeSurface, minimizeButton, 0.6, 0.46)
+
+    self.ActionBar = makeGlass(self.MainPanel, {
+        Size = UDim2.new(1, -28, 0, 42),
+        Position = UDim2.new(0, 14, 1, -48),
+        BackgroundColor3 = Color3.fromRGB(92, 64, 78),
+        BackgroundTransparency = 0.58,
+        Radius = 14,
+        ZIndex = 8,
+        StrokeTransparency = 0.56
+    })
+    self:_animateStroke(self.ActionBar, 0.26)
+
+    local footerMode = newObject("Frame", {
+        Parent = self.ActionBar,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 12, 0, 0),
+        Size = UDim2.new(0.38, 0, 1, 0),
+        ZIndex = 9
+    })
+
+    local footerModeIcon = self:_makeInteractiveSurface(footerMode, UDim2.fromOffset(30, 30))
+    footerModeIcon.Position = UDim2.new(0, 0, 0.5, -15)
+    footerModeIcon.BackgroundTransparency = 0.42
+    footerModeIcon.ZIndex = 9
+
+    newObject("TextLabel", {
+        Parent = footerModeIcon,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        Text = "Q",
+        TextColor3 = Color3.fromRGB(255, 104, 108),
+        TextSize = 18,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 10
+    })
+
+    newObject("TextLabel", {
+        Parent = footerMode,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamMedium,
+        Text = "Search",
+        TextColor3 = Library.Theme.MutedText,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Position = UDim2.new(0, 42, 0, 0),
+        Size = UDim2.new(1, -42, 1, 0),
+        ZIndex = 9
+    })
+
+    self.ActionLabel = newObject("TextLabel", {
+        Parent = self.ActionBar,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.Gotham,
+        Text = "Open    Enter   |   Actions    " .. keybindToText(self.ToggleKeybind) .. "   |   Minimize   M",
+        TextColor3 = Library.Theme.MutedText,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Right,
+        Position = UDim2.new(0.34, 0, 0, 0),
+        Size = UDim2.new(0.66, -16, 1, 0),
+        ZIndex = 9
+    })
 
     self.DockSurface = makeGlass(self.MainOverlay, {
         Size = UDim2.fromOffset(240, 44),
@@ -1207,10 +1481,95 @@ function Controller:_buildMainWindow()
         ZIndex = 11
     })
     self.DockLabel = dockButton
-    self:_addHoverAnimation(self.DockSurface, dockButton, 0.12, 0.04)
+    self:_addHoverAnimation(self.DockSurface, dockButton, 0.58, 0.44)
     self:_connect(dockButton.MouseButton1Click, function()
         self:_restoreWindow()
     end)
+
+    self:_setDetailView({
+        Glyph = "R",
+        Title = self.Config.Name or "Daw1dk Glass",
+        Subtitle = "Ready",
+        Description = "Select a category on the left and interact with controls from the results column.",
+        Meta = {
+            {Label = "Layout", Value = "Raycast-style"},
+            {Label = "Resize", Value = "Bottom-right grip"},
+            {Label = "Toggle", Value = keybindToText(self.ToggleKeybind)},
+            {Label = "State", Value = "Authenticated"}
+        }
+    })
+end
+
+function Controller:_setDetailView(config)
+    if not self.DetailPane or not self.DetailTitle then
+        return
+    end
+
+    local payload = config or {}
+
+    self.DetailGlyph.Text = tostring(payload.Glyph or "R")
+    self.DetailTitle.Text = tostring(payload.Title or (self.Config.Name or "Daw1dk Glass"))
+    self.DetailSubtitle.Text = tostring(payload.Subtitle or "Overview")
+    self.DetailDescription.Text = tostring(payload.Description or "Focus an item to view more context.")
+
+    for _, child in ipairs(self.DetailMetaHolder:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+
+    local meta = payload.Meta or {}
+    if #meta == 0 then
+        meta = {
+            {Label = "State", Value = "Idle"}
+        }
+    end
+
+    for index, item in ipairs(meta) do
+        local row = newObject("Frame", {
+            Parent = self.DetailMetaHolder,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 0, 54),
+            LayoutOrder = index,
+            ZIndex = 8
+        })
+
+        newObject("TextLabel", {
+            Parent = row,
+            BackgroundTransparency = 1,
+            Font = Enum.Font.GothamMedium,
+            Text = tostring(item.Label or "Field"),
+            TextColor3 = Library.Theme.MutedText,
+            TextSize = 14,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Position = UDim2.new(0, 0, 0, 4),
+            Size = UDim2.new(1, 0, 0, 18),
+            ZIndex = 9
+        })
+
+        newObject("TextLabel", {
+            Parent = row,
+            BackgroundTransparency = 1,
+            Font = Enum.Font.Gotham,
+            Text = tostring(item.Value or ""),
+            TextColor3 = Library.Theme.Text,
+            TextSize = 14,
+            TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            Position = UDim2.new(0, 0, 0, 24),
+            Size = UDim2.new(1, 0, 0, 20),
+            ZIndex = 9
+        })
+
+        if index < #meta then
+            makeDivider(row, {
+                Position = UDim2.new(0, 0, 1, -1),
+                Size = UDim2.new(1, 0, 0, 1),
+                BackgroundTransparency = 0.92,
+                ZIndex = 8
+            })
+        end
+    end
 end
 
 function Controller:_buildKeyOverlay()
@@ -1726,7 +2085,7 @@ function Controller:_setToggleKeybind(value)
     end
 
     if self.ActionLabel then
-        self.ActionLabel.Text = "Enter Select    " .. keybindToText(self.ToggleKeybind) .. " Toggle UI    M Minimize"
+        self.ActionLabel.Text = "Open    Enter   |   Actions    " .. keybindToText(self.ToggleKeybind) .. "   |   Minimize   M"
     end
 
     if self.DockLabel then
@@ -1877,6 +2236,18 @@ function Controller:_selectTab(tabRecord)
     if self.CommandHint then
         self.CommandHint.Text = "Browsing " .. tabRecord.Name
     end
+    self:_setDetailView({
+        Glyph = string.upper(string.sub(tabRecord.Name, 1, 1)),
+        Title = tabRecord.Name,
+        Subtitle = "Category",
+        Description = "This section contains the controls and actions available for " .. tabRecord.Name .. ".",
+        Meta = {
+            {Label = "Type", Value = "Tab"},
+            {Label = "Content", Value = "Results list"},
+            {Label = "Toggle UI", Value = keybindToText(self.ToggleKeybind)},
+            {Label = "Window", Value = self.Config.Name or "Daw1dk Glass"}
+        }
+    })
 end
 
 function Controller:_createTab(name, icon)
@@ -2226,6 +2597,20 @@ function TabMethods:CreateParagraph(options)
         ZIndex = 9
     })
 
+    bindDetailPreview(self._controller, panel, nil, function()
+        return {
+            Glyph = "P",
+            Title = tostring(config.Title or "Paragraph"),
+            Subtitle = "Information",
+            Description = tostring(config.Content or ""),
+            Meta = {
+                {Label = "Type", Value = "Paragraph"},
+                {Label = "Section", Value = self._record.Name},
+                {Label = "Content", Value = "Static text"}
+            }
+        }
+    end)
+
     return setmetatable({
         _panel = panel,
         _title = title,
@@ -2245,9 +2630,39 @@ function ParagraphMethods:Set(options)
     end
 end
 
+local function bindDetailPreview(controller, surface, trigger, payloadCallback)
+    if not controller or not surface or type(payloadCallback) ~= "function" then
+        return
+    end
+
+    local function apply()
+        controller:_setDetailView(payloadCallback())
+    end
+
+    controller:_connect(surface.MouseEnter, apply)
+
+    if trigger then
+        controller:_connect(trigger.MouseButton1Click, apply)
+    end
+end
+
 function KeybindMethods:_applyKeybind(value, shouldCallback)
     self._value = resolveKeybind(value)
     self._button.Text = keybindToText(self._value)
+
+    if self._controller and self._controller.DetailTitle and self._controller.DetailTitle.Text == self._title then
+        self._controller:_setDetailView({
+            Glyph = "K",
+            Title = self._title,
+            Subtitle = "Keybind",
+            Description = "Press to capture a new keyboard shortcut.",
+            Meta = {
+                {Label = "Type", Value = "Keybind"},
+                {Label = "Current", Value = keybindToText(self._value)},
+                {Label = "Section", Value = self._section or "General"}
+            }
+        })
+    end
 
     if type(self._changedCallback) == "function" and shouldCallback ~= false then
         safeCall(self._changedCallback, self._value)
@@ -2297,6 +2712,19 @@ function TabMethods:CreateButton(options)
     self._controller:_connect(button.MouseButton1Click, function()
         safeCall(config.Callback)
     end)
+    bindDetailPreview(self._controller, panel, button, function()
+        return {
+            Glyph = "B",
+            Title = tostring(config.Name or "Button"),
+            Subtitle = "Action",
+            Description = tostring(config.Description or "Runs a callback when selected."),
+            Meta = {
+                {Label = "Type", Value = "Button"},
+                {Label = "Interaction", Value = "Press Enter / Click"},
+                {Label = "Section", Value = self._record.Name}
+            }
+        }
+    end)
 
     return {
         Instance = panel,
@@ -2307,6 +2735,7 @@ end
 function TabMethods:CreateToggle(options)
     local config = options or {}
     local state = not not config.CurrentValue
+    local labelText = tostring(config.Name or "Toggle")
 
     local panel = self:_newItem(50)
     panel.BackgroundTransparency = 0.5
@@ -2390,11 +2819,38 @@ function TabMethods:CreateToggle(options)
         if shouldCallback ~= false then
             safeCall(config.Callback, state)
         end
+
+        if self._controller.DetailTitle and self._controller.DetailTitle.Text == labelText then
+            self._controller:_setDetailView({
+                Glyph = "T",
+                Title = labelText,
+                Subtitle = "Toggle",
+                Description = tostring(config.Description or "Switch this state on or off."),
+                Meta = {
+                    {Label = "Type", Value = "Toggle"},
+                    {Label = "State", Value = state and "Enabled" or "Disabled"},
+                    {Label = "Section", Value = self._record.Name}
+                }
+            })
+        end
     end
 
     self._controller:_addHoverAnimation(panel, hitbox, 0.5, 0.42)
     self._controller:_connect(hitbox.MouseButton1Click, function()
         setState(not state, true)
+    end)
+    bindDetailPreview(self._controller, panel, hitbox, function()
+        return {
+            Glyph = "T",
+            Title = labelText,
+            Subtitle = "Toggle",
+            Description = tostring(config.Description or "Switch this state on or off."),
+            Meta = {
+                {Label = "Type", Value = "Toggle"},
+                {Label = "State", Value = state and "Enabled" or "Disabled"},
+                {Label = "Section", Value = self._record.Name}
+            }
+        }
     end)
 
     setState(state, false)
@@ -2412,6 +2868,7 @@ end
 
 function TabMethods:CreateKeybind(options)
     local config = options or {}
+    local labelText = tostring(config.Name or "Keybind")
     local panel = self:_newItem(50)
     panel.BackgroundTransparency = 0.5
     makePadding(panel, 18, 18, 0, 0)
@@ -2451,13 +2908,28 @@ function TabMethods:CreateKeybind(options)
         _controller = self._controller,
         _button = keyButton,
         _value = resolveKeybind(config.CurrentKeybind or "K"),
-        _changedCallback = config.ChangedCallback or config.Callback
+        _changedCallback = config.ChangedCallback or config.Callback,
+        _title = labelText,
+        _section = self._record.Name
     }, KeybindMethods)
 
     self._controller:_addHoverAnimation(keySurface, keyButton, 0.5, 0.38)
     self._controller:_connect(keyButton.MouseButton1Click, function()
         self._controller.PendingKeybindCapture = widget
         keyButton.Text = "Press key"
+    end)
+    bindDetailPreview(self._controller, panel, keyButton, function()
+        return {
+            Glyph = "K",
+            Title = labelText,
+            Subtitle = "Keybind",
+            Description = tostring(config.Description or "Press to capture a new keyboard shortcut."),
+            Meta = {
+                {Label = "Type", Value = "Keybind"},
+                {Label = "Current", Value = keybindToText(widget._value)},
+                {Label = "Section", Value = self._record.Name}
+            }
+        }
     end)
 
     widget:_applyKeybind(widget._value, false)
@@ -2470,6 +2942,7 @@ function TabMethods:CreateSlider(options)
     local maxValue = (config.Range and config.Range[2]) or 100
     local increment = config.Increment or 1
     local current = roundToIncrement(config.CurrentValue or minValue, minValue, maxValue, increment)
+    local labelText = tostring(config.Name or "Slider")
 
     local panel = self:_newItem(84)
     panel.BackgroundTransparency = 0.5
@@ -2583,6 +3056,21 @@ function TabMethods:CreateSlider(options)
         if shouldCallback ~= false then
             safeCall(config.Callback, current)
         end
+
+        if self._controller.DetailTitle and self._controller.DetailTitle.Text == labelText then
+            self._controller:_setDetailView({
+                Glyph = "S",
+                Title = labelText,
+                Subtitle = "Slider",
+                Description = tostring(config.Description or "Adjust this value within the configured range."),
+                Meta = {
+                    {Label = "Type", Value = "Slider"},
+                    {Label = "Value", Value = formatNumber(current)},
+                    {Label = "Range", Value = formatNumber(minValue) .. " - " .. formatNumber(maxValue)},
+                    {Label = "Step", Value = formatNumber(increment)}
+                }
+            })
+        end
     end
 
     local function updateFromMouse()
@@ -2598,6 +3086,20 @@ function TabMethods:CreateSlider(options)
     self._controller:_connect(hitbox.MouseButton1Down, function()
         dragging = true
         updateFromMouse()
+    end)
+    bindDetailPreview(self._controller, panel, nil, function()
+        return {
+            Glyph = "S",
+            Title = labelText,
+            Subtitle = "Slider",
+            Description = tostring(config.Description or "Adjust this value within the configured range."),
+            Meta = {
+                {Label = "Type", Value = "Slider"},
+                {Label = "Value", Value = formatNumber(current)},
+                {Label = "Range", Value = formatNumber(minValue) .. " - " .. formatNumber(maxValue)},
+                {Label = "Step", Value = formatNumber(increment)}
+            }
+        }
     end)
 
     self._controller:_connect(UserInputService.InputChanged, function(input)
@@ -2626,3 +3128,4 @@ function TabMethods:CreateSlider(options)
 end
 
 return Library
+
